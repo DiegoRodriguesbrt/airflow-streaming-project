@@ -1,0 +1,285 @@
+volumes:
+    postgres-db-volume: {}
+
+x-airflow-common-env: &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres/airflow
+    AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
+    AIRFLOW__CORE__FERNET_KEY: ''
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'True'
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'False'
+    AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session
+    _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-}
+    AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: 30
+    AIRFLOW__SMTP__SMTP_HOST: smtp.gmail.com
+    AIRFLOW__SMTP__SMTP_MAIL_FROM: sample_email@my_email.com
+    AIRFLOW__SMTP__SMTP_USER: sample_email@my_email.com
+    AIRFLOW__SMTP__SMTP_PASSWORD: your_password
+    AIRFLOW__SMTP__SMTP_PORT: 587
+
+x-airflow-common:
+    &airflow-common
+    image: ${AIRFLOW_IMAGE:-apache/airflow:2.7.1}
+    environment:
+        <<: *airflow-common-env
+    volumes:
+        - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
+        - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
+        - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
+        - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
+    user: "${AIRFLOW_UID:-50000}:0"
+    depends_on:
+        &airflow-common-depends-on
+        postgres:
+            condition: service_healthy
+        redis:
+            condition: service_healthy
+    networks:
+        - airflow-project-network
+
+services:
+
+    zookeeper:
+        image: confluentinc/cp-zookeeper:7.4.0
+        hostname: zookeeper
+        container_name: zookeeper
+        restart: unless-stopped
+        ports:
+            - "2101:2101"
+        environment:
+            ZOOKEEPER_CLIENT_PORT: 2101
+            ZOOKEEPER_TICK_TIME: 2000
+        healthcheck:
+            test: [ "CMD", "bash", "-c", "echo 'ruok' | nc localhost 2101"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+        networks:
+            - airflow-project-network
+
+    kafka_broker:
+        image: docker.redpanda.com/redpandadata/redpanda:v24.1.1
+        restart: unless-stopped
+        command: |
+            redpanda start
+            --smp 1
+            --overprovisioned
+            --node-id 0
+            --kafka-addr  internal://0.0.0.0:9092,external://0.0.0.0:19092
+            --advertise-kafka-addr internal://kafka_broker:9092,external://localhost:19092
+            --schema-registry-addr internal://0.0.0.0:8081,external://0.0.0.0:18081
+            --rpc-addr kafka_broker:33145
+            --advertise-rpc-addr kafka_broker:33145
+            --mode dev-container
+            --set auto_create_topics_enabled=true
+        ports:
+            - 18081:18081
+            - 18082:18082
+            - 19092:19092
+            - 19644:9644
+        networks:
+            - airflow-project-network
+        
+    console:
+        image: docker.redpanda.com/redpandadata/console:v2.5.2
+        restart: unless-stopped
+        entrypoint: /bin/sh
+        command: |-
+            -c 'echo "$$CONSOLE_CONFIG_FILE" > /tmp/config.yml; /app/console'
+        depends_on:
+            - kafka_broker
+        ports:
+            - 8080:8080
+        environment:
+            CONFIG_FILEPATH: /tmp/config.yml
+            CONSOLE_CONFIG_FILE: >
+                kafka:
+                    brokers: ["kafka_broker:9092"]
+                    schemaRegistry:
+                        enabled: true
+                        urls: ["http://kafka_broker:8081"]
+                redpanda:
+                    adminApi:
+                        enabled: true
+                        urls: ["http://kafka_broker:9644"]
+                connect:
+                    enabled: true
+                    clusters:
+                        - name: local-connect-cluster
+                          url: http://connect:8083
+        networks:
+            - airflow-project-network
+
+
+    postgres:
+        image: postgres:15
+        container_name: postgres
+        restart: unless-stopped
+        environment:
+            POSTGRES_USER: airflow
+            POSTGRES_PASSWORD: airflow
+            POSTGRES_DB: airflow
+        volumes:
+            - postgres-db-volume:/var/lib/postgresql/data
+        healthcheck:
+            test: ["CMD", "pg_isready", "-U", "airflow"]
+            interval: 10s
+            retries: 5
+            start_period: 5s
+        networks:
+            - airflow-project-network
+
+    redis:
+        image: redis:7
+        container_name: redis
+        restart: unless-stopped
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+        networks:
+            - airflow-project-network
+
+    airflow-webserver:
+        <<: *airflow-common
+        command: webserver
+        container_name: airflow-webserver
+        ports:
+            - "8081:8080"
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+            interval: 30s
+            timeout: 10s
+            retries: 5
+            start_period: 30s
+        restart: always
+        depends_on:
+            <<: *airflow-common-depends-on
+            airflow-init:
+                condition: service_completed_successfully
+        networks:
+            - airflow-project-network
+
+    airflow-scheduler:
+        <<: *airflow-common
+        command: scheduler
+        container_name: airflow-scheduler
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:8974/health"]
+            interval: 30s
+            timeout: 10s
+            retries: 5
+            start_period: 30s
+        restart: always
+        depends_on:
+            <<: *airflow-common-depends-on
+            airflow-init:
+                condition: service_completed_successfully
+        networks:
+            - airflow-project-network
+
+    airflow-worker:
+        <<: *airflow-common
+        command: celery worker
+        container_name: airflow-worker
+        restart: always
+        depends_on:
+            <<: *airflow-common-depends-on
+            airflow-init:
+                condition: service_completed_successfully
+        networks:
+            - airflow-project-network
+
+    airflow-flower:
+        <<: *airflow-common
+        command: celery flower
+        container_name: airflow-flower
+        ports:
+            - "5555:5555"
+        restart: always
+        depends_on:
+            <<: *airflow-common-depends-on
+            airflow-init:
+                condition: service_completed_successfully
+        networks:
+            - airflow-project-network
+
+    airflow-init:
+        <<: *airflow-common
+        container_name: airflow-init
+        command: >
+            bash -c "airflow db init &&
+            airflow users create --username admin --firstname Admin --lastname User --role Admin --email admin@admin.com --password admin"
+        environment:
+            <<: *airflow-common-env
+            _AIRFLOW_DB_MIGRATED: "true"
+            _AIRLOW_WWW_USER_CREATE: "true"
+            _AIRFLOW_WWW_USER_USERNAME: ${AIRFLOW_WWW_USER_USERNAME:-airflow}
+            _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_WWW_USER_PASSWORD:-airflow}
+            _PIP_ADDITIONAL_REQUIREMENTS: ''
+        user: "0:0"
+        volumes:
+            - ${AIRFLOW_PROJ_DIR:-.}/sources:/opt/airflow/sources
+        networks:
+            - airflow-project-network
+
+    airflow-cli:
+        <<: *airflow-common
+        profiles:
+            - debug
+        container_name: airflow-cli
+        environment:
+            <<: *airflow-common-env
+            CONNECTOR_CHECK_MAX_COUNT: "0"
+        command:
+            - bash
+            - -c
+            - airflow
+        networks:
+            - airflow-project-network
+    
+    pinot-controller:
+        image: apachepinot/pinot:1.2.0
+        container_name: pinot-controller
+        command: StartController -zkAddress zookeeper:2101
+        ports:
+            - "9000:9000"   # UI e API REST
+        environment:
+            JAVA_OPTS: "-Xms512M -Xmx1G"
+        depends_on:
+            - zookeeper
+        networks:
+            - airflow-project-network
+
+    pinot-broker:
+        image: apachepinot/pinot:1.2.0
+        container_name: pinot-broker
+        command: StartBroker -zkAddress zookeeper:2101
+        ports:
+            - "8000:8000"   # Broker API
+        environment:
+            JAVA_OPTS: "-Xms512M -Xmx1G"
+        depends_on:
+            - zookeeper
+            - pinot-controller
+        networks:
+            - airflow-project-network
+
+    pinot-server:
+        image: apachepinot/pinot:1.2.0
+        container_name: pinot-server
+        command: StartServer -zkAddress zookeeper:2101
+        environment:
+            JAVA_OPTS: "-Xms512M -Xmx1G"
+        depends_on:
+            - zookeeper
+            - pinot-controller
+        networks:
+            - airflow-project-network
+
+
+networks:
+    airflow-project-network: {}
