@@ -1,6 +1,7 @@
 import random
 import pandas as pd
 import logging
+from faker import Faker
 from airflow.operators.empty import EmptyOperator
 from airflow.operators.python import PythonOperator
 from airflow import DAG
@@ -12,6 +13,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+fake = Faker()
+
 start_date = datetime(2025,3,27)
 default_args = {
     'owner': 'project-airflow',
@@ -20,7 +23,7 @@ default_args = {
 }
 
 number_rows = 150
-output_file = './customer_dim_large_data.csv'
+output_file = '/opt/airflow/dags/customer_dim_large_data.csv'
 
 customer_id = []
 first_name = []
@@ -28,20 +31,20 @@ last_name = []
 email = []
 phone_number = []
 
-def generate_data():
-    customer_id = f'C{number_rows:05d}'
-    firt_name = f'FirstName{number_rows}'
-    last_name = f'LastName{number_rows}'
-    email = f'{firt_name.lower()}.{last_name.lower()}@example.com'
-    phone_number = f'{random.randint(1000000000, 9999999999)}'
+def generate_data(row_number):
+    customer_id = f'C{row_number:05d}'
+    first_name = fake.first_name()
+    last_name = fake.last_name()
+    email = f'{first_name.lower()}.{last_name.lower()}@example.com'
+    phone_number = fake.phone_number()
    
-    return customer_id, firt_name, last_name, email, phone_number
+    return customer_id, first_name, last_name, email, phone_number
 
 
 def generate_customer_dim_data():
     row_number = 1
     while row_number <= number_rows:
-        data = generate_data()
+        data = generate_data(row_number)
         customer_id.append(data[0])
         first_name.append(data[1])
         last_name.append(data[2])

@@ -5,6 +5,8 @@ from airflow.operators.empty import EmptyOperator
 from airflow.operators.python import PythonOperator
 from datetime import datetime, timedelta
 from airflow import DAG
+import os
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -20,7 +22,7 @@ default_args = {
 }
 
 number_rows = 50
-output_file = './account_dim_large_data.csv'
+output_file = '/opt/airflow/dags/account_dim_large_data.csv'
 
 account_ids = []
 account_types = []
@@ -30,8 +32,8 @@ balances = []
 opening_dates = []
 
 
-def generate_data():
-    account_id = f'A{number_rows:05d}'
+def generate_data(row_number):
+    account_id = f'A{row_number:05d}'
     account_type = random.choice(['savings', 'checking', 'credit'])
     status = random.choice(['active', 'inactive', 'closed'])
     customer_id = f'C{random.randint(1, 1000):05d}'
@@ -45,9 +47,11 @@ def generate_data():
 
 
 def generate_account_dim_data():
+    current_dir = os.getcwd()
+    logger.info(f"Current working directory: {current_dir}")
     row_number = 1
     while row_number <= number_rows:
-        account_id, account_type, status, customer_id,balance, opening_date_millis = generate_data()
+        account_id, account_type, status, customer_id,balance, opening_date_millis = generate_data(row_number)
         account_ids.append(account_id)
         account_types.append(account_type)
         statuses.append(status)

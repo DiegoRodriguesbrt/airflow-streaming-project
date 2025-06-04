@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from airflow import DAG
-from airflow.operators import EmptyOperator, PythonOperator
+from airflow.operators.empty import EmptyOperator
 from kafka_operator import KafkaProducerOperator
 
 
@@ -24,7 +24,7 @@ with DAG(
 
     generate_transaction_data = KafkaProducerOperator(
         task_id = 'generate_transaction_facts_data',
-        kafka_broker = 'kafka:9092',
+        kafka_broker = 'kafka_broker:9092',
         kafka_topic = 'transaction_facts',
         num_records = 100
     )

@@ -20,12 +20,12 @@ default_args = {
 }
 
 number_rows = 50
-output_file = './branch_dim_large_data.csv'
+output_file = '/opt/airflow/dags/branch_dim_large_data.csv'
 
 
-def generate_data():
-    branch_id = f'B{number_rows:04d}'
-    branch_name = f'Branch {number_rows}'
+def generate_data(row_number):
+    branch_id = f'B{row_number:04d}'
+    branch_name = f'Branch {row_number}'
     branch_address = f'{random.randint(1, 9999)} {random.choice(["Main St", "High St", "Broadway", "Elm St"])}'
     city = random.choice(['New York', 'Los Angeles', 'Chicago', 'Houston', 'Phoenix', 'Rio de Janeiro', 'Sao Paulo', 'Buenos Aires', 'João Pessoa', 'Salvador'])
     region = random.choice(['NY', 'CA', 'IL', 'TX', 'AZ', 'RJ', 'SP', 'BA'])
