@@ -11,7 +11,7 @@ x-airflow-common-env: &airflow-common-env
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'True'
     AIRFLOW__CORE__LOAD_EXAMPLES: 'False'
     AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session
-    _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-}
+    _PIP_ADDITIONAL_REQUIREMENTS: kafka-python faker
     AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: 30
     AIRFLOW__SMTP__SMTP_HOST: smtp.gmail.com
     AIRFLOW__SMTP__SMTP_MAIL_FROM: sample_email@my_email.com
@@ -280,6 +280,21 @@ services:
         networks:
             - airflow-project-network
 
+
+    superset:
+        build:
+            context: ./superset
+            dockerfile: Dockerfile
+        container_name: superset
+        restart: unless-stopped
+        environment:
+            - ADMIN_USERNAME=diego
+            - ADMIN_EMAIL=admin@superset.com
+            - ADMIN_PASSWORD=admin
+        ports:
+            - '8088:8088'
+        networks:
+            - airflow-project-network
 
 networks:
     airflow-project-network: {}

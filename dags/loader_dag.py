@@ -27,7 +27,7 @@ with DAG(
     ingest_account_dim = BashOperator(
         task_id = 'ingest_account_dim',
         bash_command=(
-            'curl -X POST -F file=@/opt/airflow/account_dim_large_data.csv '
+            'curl -X POST -F file=@/opt/airflow/dags/account_dim_large_data.csv '
             '-H "Content-Type: multipart/form-data" '
             '"http://pinot-controller:9000/ingestFromFile?tableNameWithType=account_dim_OFFLINE&batchConfigMapStr=%7B%22inputFormat%22%3A%22csv%22%2C%22recordReader.prop.delimiter%22%3A%22%2C%22%7D"'
         )
@@ -36,7 +36,7 @@ with DAG(
     ingest_customer_dim = BashOperator(
         task_id = 'ingest_customer_dim',
         bash_command=(
-            'curl -X POST -F file=@/opt/airflow/customer_dim_large_data.csv '
+            'curl -X POST -F file=@/opt/airflow/dags/customer_dim_large_data.csv '
             '-H "Content-Type: multipart/form-data" '
             '"http://pinot-controller:9000/ingestFromFile?tableNameWithType=customer_dim_OFFLINE&batchConfigMapStr=%7B%22inputFormat%22%3A%22csv%22%2C%22recordReader.prop.delimiter%22%3A%22%2C%22%7D"'
         )
@@ -45,7 +45,7 @@ with DAG(
     ingest_branch_dim = BashOperator(
         task_id = 'ingest_branch_dim',
         bash_command=(
-            'curl -X POST -F file=@/opt/airflow/branch_dim_large_data.csv '
+            'curl -X POST -F file=@/opt/airflow/dags/branch_dim_large_data.csv '
             '-H "Content-Type: multipart/form-data" '
             '"http://pinot-controller:9000/ingestFromFile?tableNameWithType=branch_dim_OFFLINE&batchConfigMapStr=%7B%22inputFormat%22%3A%22csv%22%2C%22recordReader.prop.delimiter%22%3A%22%2C%22%7D"'
         )

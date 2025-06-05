@@ -1,6 +1,7 @@
 import random
 import pandas as pd
 import logging
+from faker import Faker
 from airflow import DAG
 from airflow.operators.empty import EmptyOperator
 from airflow.operators.python import PythonOperator
@@ -11,6 +12,8 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+fake = Faker('en_US')
 
 start_date = datetime(2025,3,27)
 default_args = {
@@ -25,11 +28,11 @@ output_file = '/opt/airflow/dags/branch_dim_large_data.csv'
 
 def generate_data(row_number):
     branch_id = f'B{row_number:04d}'
-    branch_name = f'Branch {row_number}'
-    branch_address = f'{random.randint(1, 9999)} {random.choice(["Main St", "High St", "Broadway", "Elm St"])}'
-    city = random.choice(['New York', 'Los Angeles', 'Chicago', 'Houston', 'Phoenix', 'Rio de Janeiro', 'Sao Paulo', 'Buenos Aires', 'João Pessoa', 'Salvador'])
-    region = random.choice(['NY', 'CA', 'IL', 'TX', 'AZ', 'RJ', 'SP', 'BA'])
-    postcode = f'{random.randint(10000, 99999)}'
+    branch_name = fake.company()
+    branch_address = fake.street_address()
+    city = fake.city()
+    region = fake.state_abbr()
+    postcode = fake.postcode()
 
     now = datetime.now()
     random_date = now - timedelta(days=random.randint(0, 365))
