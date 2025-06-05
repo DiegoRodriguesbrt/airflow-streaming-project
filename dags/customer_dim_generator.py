@@ -13,7 +13,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-fake = Faker()
+fake = Faker('pt_BR')
 
 start_date = datetime(2025,3,27)
 default_args = {
