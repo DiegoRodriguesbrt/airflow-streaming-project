@@ -3,7 +3,7 @@
 Este projeto simula um pipeline de dados bancários, totalmente containerizado com Docker Compose, integrando Airflow, Kafka (Redpanda), Apache Pinot e Superset para geração, ingestão, processamento e visualização de dados.
 
 
-![Arquitetura do Projeto](./airflow_project_architecture.png)
+![Arquitetura do Projeto](./airflow_project_architecture_2.png)
 
 ## Visão Geral
 
