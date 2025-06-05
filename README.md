@@ -2,6 +2,9 @@
 
 Este projeto simula um pipeline de dados bancários, totalmente containerizado com Docker Compose, integrando Airflow, Kafka (Redpanda), Apache Pinot e Superset para geração, ingestão, processamento e visualização de dados.
 
+
+![Arquitetura do Projeto](./airflow_project_architecture.png)
+
 ## Visão Geral
 
 - **Geração de Dados**: Utiliza DAGS do Airflow para gerar dados sintéticos de transações bancárias e dimensões (branch, account, customer) com auxílio da biblioteca Faker.
